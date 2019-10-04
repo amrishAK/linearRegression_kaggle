@@ -1,2 +1,2 @@
-# linerRegression_kaggle
+# linearRegression_kaggle
 ML Assignment Kaggle 
