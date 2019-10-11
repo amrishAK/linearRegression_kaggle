@@ -15,6 +15,10 @@ import matplotlib.pyplot as plt
 testDS_path = "tcd ml 2019-20 income prediction test (without labels).csv"
 trainDS_path = "tcd ml 2019-20 income prediction training (with labels).csv"
 
+#Store uniques
+professionUniques = None
+countryUniques = None
+
 def ManagingNulls(dataFrame):
     
     #Year of Record [dataType = float64] -> mean
@@ -70,10 +74,7 @@ def FeatureExtraction(dataFrame,columnName):
 
     return dataFrame
 
-def ExtractingSplFeaturesTrainDS(dataFrame,columnName):
-
-    #get the uniques
-    uniques = dataFrame[columnName].unique()
+def ExtractingSplFeatures(uniques,dataFrame,columnName):
     
     # OneHeartEncoder
     encoder = OneHotEncoder(categories = [uniques],sparse = False, handle_unknown = 'ignore')
@@ -88,23 +89,6 @@ def ExtractingSplFeaturesTrainDS(dataFrame,columnName):
     #Remove the profession Column
     dataFrame = dataFrame.drop([columnName], axis = 1)
 
-    return dataFrame
-
-def ExtractingSplFeaturesTestDS(trainDSColumn,dataFrame,columnName):
-
-    uniques = trainDSColumn.unique()
-    # OneHeartEncoder
-    encoder = OneHotEncoder(categories = [uniques],sparse = False, handle_unknown = 'ignore')
-
-    column = dataFrame[columnName]
-    column = numpy.array(column).reshape(-1,1)
-
-    #Extract the column and join the data frame
-    dataFrame = dataFrame.join(pd.DataFrame(encoder.fit_transform(column),columns=encoder.categories_,index=dataFrame.index))
-
-    #Remove the Column
-    dataFrame = dataFrame.drop([columnName], axis = 1)
-    
     return dataFrame
 
 def ScalingColumns(dataFrame,columnName):
@@ -153,12 +137,18 @@ def PreprocessingTrainingDS():
 
     #preprocessing - basic
     processedTrainingFrame = Preprocessing(trainingFrame)
-    
+
+    #store uniques
+    global professionUniques
+    professionUniques = processedTrainingFrame['Profession'].unique()
+    global countryUniques
+    countryUniques = processedTrainingFrame['Country'].unique()
+
     #Extract profession
-    processedTrainingFrame = ExtractingSplFeaturesTrainDS(processedTrainingFrame,'Profession')
+    processedTrainingFrame = ExtractingSplFeatures(professionUniques,processedTrainingFrame,'Profession')
 
     #Extract Country
-    processedTrainingFrame = ExtractingSplFeaturesTrainDS(processedTrainingFrame,'Country')
+    processedTrainingFrame = ExtractingSplFeatures(countryUniques,processedTrainingFrame,'Country')
 
     #remove the negtive income rows
     processedTrainingFrame = processedTrainingFrame[processedTrainingFrame['Income in EUR'] > 0]
@@ -183,10 +173,10 @@ def PreprocessingTestDS():
     trainingFrame = pd.read_csv(trainDS_path)
 
     #Extract profession
-    processedTestFrame = ExtractingSplFeaturesTestDS(trainingFrame['Profession'],processedTestFrame,'Profession')
+    processedTestFrame = ExtractingSplFeatures(professionUniques,processedTestFrame,'Profession')
     
     #Extract Country
-    processedTestFrame = ExtractingSplFeaturesTestDS(trainingFrame['Country'],processedTestFrame,'Country')
+    processedTestFrame = ExtractingSplFeatures(countryUniques,processedTestFrame,'Country')
     
     return processedTestFrame,instance
 
