@@ -2,9 +2,14 @@ import datetime
 
 import pandas as pd
 import numpy
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import BayesianRidge
 from sklearn.preprocessing import LabelBinarizer
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
+from sklearn import preprocessing
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 # Dataset Path
 testDS_path = "tcd ml 2019-20 income prediction test (without labels).csv"
@@ -12,9 +17,9 @@ trainDS_path = "tcd ml 2019-20 income prediction training (with labels).csv"
 
 def ManagingNulls(dataFrame):
     
-    #Year of Record [dataType = float64] -> current year
-    currentYear = float(datetime.datetime.now().year)
-    dataFrame['Year of Record'] = dataFrame['Year of Record'].fillna(currentYear)
+    #Year of Record [dataType = float64] -> mean
+    #currentYear = float(datetime.datetime.now().year)
+    dataFrame['Year of Record'] = dataFrame['Year of Record'].fillna(dataFrame['Year of Record'].median())
 
     #Gender [dataType = object] -> Unknown Gender
     dataFrame['Gender'] = dataFrame['Gender'].fillna('Unknown Gender')
@@ -40,36 +45,75 @@ def FormattingColumn(dataFrame):
     dataFrame['Gender'] = dataFrame['Gender'].replace(['other'],'Other Gender')
     
     #University Degree => ['No','0'] -> No Degree
-    dataFrame['University Degree'] = dataFrame['University Degree'].replace(['No','0'],'No Degree')
+    dataFrame['University Degree'] = dataFrame['University Degree'].replace(['No'],'No Degree')
+    dataFrame['University Degree'] = dataFrame['University Degree'].replace(['0'],'0 Degree')
 
     #Hair Color => ['Unknown','0'] -> Unknown Hair Color
     dataFrame['Hair Color'] = dataFrame['Hair Color'].replace(['Unknown','0'],'Unknown Hair Color')
 
     return dataFrame
 
-def FeatureExtraction(dataFrame):
+def FeatureExtraction(dataFrame,columnName):
 
-    #create a label binary format
-    lbFormat = LabelBinarizer(neg_label=0, pos_label=1, sparse_output=False)
+    # OneHeartEncoder
+    encoder = OneHotEncoder(sparse = False, handle_unknown = 'ignore')
+
+    #reshape the column
+    column = dataFrame[columnName]
+    column = numpy.array(column).reshape(-1,1)
+
+    #Extract and join the data frame
+    dataFrame = dataFrame.join(pd.DataFrame(encoder.fit_transform(column),columns=encoder.categories_,index=dataFrame.index))
+
+    #Remove the Column
+    dataFrame = dataFrame.drop([columnName], axis = 1)
+
+    return dataFrame
+
+def ExtractingSplFeaturesTrainDS(dataFrame,columnName):
+
+    #get the uniques
+    uniques = dataFrame[columnName].unique()
     
-    #Extract Genders and join the data frame
-    dataFrame = dataFrame.join(pd.DataFrame(lbFormat.fit_transform(dataFrame['Gender']),columns=lbFormat.classes_,index=dataFrame.index))
+    # OneHeartEncoder
+    encoder = OneHotEncoder(categories = [uniques],sparse = False, handle_unknown = 'ignore')
 
-    #Remove the Gender Column
-    dataFrame = dataFrame.drop(['Gender'], axis = 1)
+    #reshape the column
+    column = dataFrame[columnName]
+    column = numpy.array(column).reshape(-1,1)
 
-    #Extract University Degree and join the data frame
-    dataFrame = dataFrame.join(pd.DataFrame(lbFormat.fit_transform(dataFrame['University Degree']),columns=lbFormat.classes_,index=dataFrame.index))
+    #Extract the column and join the data frame
+    dataFrame = dataFrame.join(pd.DataFrame(encoder.fit_transform(column),columns=encoder.categories_,index=dataFrame.index))
 
-    #Remove the University Degree Column
-    dataFrame = dataFrame.drop(['University Degree'], axis = 1)
+    #Remove the profession Column
+    dataFrame = dataFrame.drop([columnName], axis = 1)
 
-    #Extract Hair Color and join the data frame
-    dataFrame = dataFrame.join(pd.DataFrame(lbFormat.fit_transform(dataFrame['Hair Color']),columns=lbFormat.classes_,index=dataFrame.index))
+    return dataFrame
 
-    #Remove the Hair Color Column
-    dataFrame = dataFrame.drop(['Hair Color'], axis = 1)
+def ExtractingSplFeaturesTestDS(trainDSColumn,dataFrame,columnName):
 
+    uniques = trainDSColumn.unique()
+    # OneHeartEncoder
+    encoder = OneHotEncoder(categories = [uniques],sparse = False, handle_unknown = 'ignore')
+
+    column = dataFrame[columnName]
+    column = numpy.array(column).reshape(-1,1)
+
+    #Extract the column and join the data frame
+    dataFrame = dataFrame.join(pd.DataFrame(encoder.fit_transform(column),columns=encoder.categories_,index=dataFrame.index))
+
+    #Remove the Column
+    dataFrame = dataFrame.drop([columnName], axis = 1)
+    
+    return dataFrame
+
+def ScalingColumns(dataFrame,columnName):
+    scaler = preprocessing.MinMaxScaler()
+    column = dataFrame[columnName].astype(float)
+    column = numpy.array(column).reshape(-1,1)
+    scaledColumn = scaler.fit_transform(column)
+    normalizeColumn = pd.DataFrame(scaledColumn)
+    dataFrame[columnName] = normalizeColumn
     return dataFrame
 
 def Preprocessing(dataFrame):
@@ -80,14 +124,26 @@ def Preprocessing(dataFrame):
     #formatting columns
     dataFrame = FormattingColumn(dataFrame)
 
-    #feature extraction
-    dataFrame = FeatureExtraction(dataFrame)
+    #feature extraction gender
+    dataFrame = FeatureExtraction(dataFrame,'Gender')
 
-    #Initial attempt drop -> Year of record, country and city size
-    dataFrame = dataFrame.drop(['Year of Record'], axis = 1)
-    dataFrame = dataFrame.drop(['Country'], axis = 1)
+    #feature extraction uni degree
+    dataFrame = FeatureExtraction(dataFrame,'University Degree')
+
+    # #scaling age
+    # dataFrame = ScalingColumns(dataFrame,'Age')
+
+    # #scaling height
+    # dataFrame = ScalingColumns(dataFrame,'Body Height [cm]')
+
+    # #scaling Year of Record
+    # dataFrame = ScalingColumns(dataFrame,'Year of Record')
+
+    #Initial attempt drop -> Instance, Wear Glasses and city size
     dataFrame = dataFrame.drop(['Size of City'], axis = 1)
-    dataFrame = dataFrame.drop(['Body Height [cm]'], axis = 1)
+    dataFrame = dataFrame.drop(['Hair Color'], axis = 1)
+    # dataFrame = dataFrame.drop(['Wears Glasses'], axis = 1)
+    dataFrame = dataFrame.drop(['Instance'], axis = 1)
 
     return dataFrame
 
@@ -97,22 +153,18 @@ def PreprocessingTrainingDS():
 
     #preprocessing - basic
     processedTrainingFrame = Preprocessing(trainingFrame)
-
-    #get the list of profession
-    trainingProfessionList = processedTrainingFrame['Profession'].unique()
     
-    #create a label binary format
-    lbFormat = LabelBinarizer(neg_label=0, pos_label=1, sparse_output=False)
+    #Extract profession
+    processedTrainingFrame = ExtractingSplFeaturesTrainDS(processedTrainingFrame,'Profession')
 
-    #Extract the profession column and join the data frame
-    processedTrainingFrame = processedTrainingFrame.join(pd.DataFrame(lbFormat.fit_transform(processedTrainingFrame['Profession']),columns=lbFormat.classes_,index=processedTrainingFrame.index))
+    #Extract Country
+    processedTrainingFrame = ExtractingSplFeaturesTrainDS(processedTrainingFrame,'Country')
 
-    #Add a new column -> Other Profession
-    dummyData = [0] * len(processedTrainingFrame['Profession'])
-    processedTrainingFrame['Other Profession'] = dummyData
+    #remove the negtive income rows
+    processedTrainingFrame = processedTrainingFrame[processedTrainingFrame['Income in EUR'] > 0]
 
-    #Remove the profession Column
-    processedTrainingFrame = processedTrainingFrame.drop(['Profession'], axis = 1)
+    #remove outliers
+    processedTrainingFrame = processedTrainingFrame[processedTrainingFrame['Income in EUR'] < 2600000]
 
     return processedTrainingFrame.drop(['Income in EUR'],axis = 1), processedTrainingFrame['Income in EUR']
 
@@ -120,60 +172,56 @@ def PreprocessingTrainingDS():
 def PreprocessingTestDS():
     testFrame = pd.read_csv(testDS_path)
 
+    instance = testFrame['Instance']
+
     #Remove income Column
     testFrame = testFrame.drop(['Income'],axis = 1)
 
     processedTestFrame = Preprocessing(testFrame)
 
-    #Formate the profession column
+    #load the training data
     trainingFrame = pd.read_csv(trainDS_path)
-    refProfessionList = list(set(processedTestFrame['Profession'].unique()) - set(trainingFrame['Profession'].unique()))
-    processedTestFrame['Profession'] = processedTestFrame['Profession'].replace(refProfessionList,'Other Profession')
 
+    #Extract profession
+    processedTestFrame = ExtractingSplFeaturesTestDS(trainingFrame['Profession'],processedTestFrame,'Profession')
     
-    #create a label binary format
-    lbFormat = LabelBinarizer(neg_label=0, pos_label=1, sparse_output=False)
-
-    #Extract the profession column and join the data frame
-    processedTestFrame = processedTestFrame.join(pd.DataFrame(lbFormat.fit_transform(processedTestFrame['Profession']),columns=lbFormat.classes_,index=processedTestFrame.index))
-
-    #Add a new columns to match the training frame
-    dummyData = [0] * len(processedTestFrame['Profession'])
-    neededProfessionList = list(set(trainingFrame['Profession'].unique()) - set(processedTestFrame['Profession'].unique()))
-
-    for prof in neededProfessionList:
-        processedTestFrame[prof] = dummyData
-
-    #Remove the profession Column
-    processedTestFrame = processedTestFrame.drop(['Profession'], axis = 1)
-    return processedTestFrame
+    #Extract Country
+    processedTestFrame = ExtractingSplFeaturesTestDS(trainingFrame['Country'],processedTestFrame,'Country')
+    
+    return processedTestFrame,instance
 
 def ModelCreation(xFrame, yFrame):
-    return LinearRegression().fit(xFrame,yFrame)
+    return BayesianRidge().fit(xFrame,yFrame)
 
 def run():
 
     print("stated training data preprocessing")
     #load and preprocess training data
     (xDataFrame,yDataFrame) = PreprocessingTrainingDS()
-    
+
+    #split the validation data
+    xDataFrame, xDataFrameValidate, yDataFrame, yDataFrameValidate = train_test_split(xDataFrame, yDataFrame, test_size = 0.2, random_state = 0)
+   
     print("stated creating linear model")
     #create model and train
     linearModel = ModelCreation(xDataFrame,yDataFrame)
 
-    print("stated training data preprocessing")
+    print("stated testing data preprocessing")
     #load and preprocess test data
-    testDataFrame = PreprocessingTestDS()
+    (testDataFrame,testInstance) = PreprocessingTestDS()
 
     print("stated prediction")   
-    #prediction
-    prediction = linearModel.predict(testDataFrame)
-    
-    print("pusing to a file") 
-    numpy.savetxt('predictedOutput.csv',prediction)
 
-    print("Mean Square Error is " + str(linearModel.score(testDataFrame,prediction)))
-    
+    #prediction
+    predictionValidate = linearModel.predict(xDataFrameValidate)
+    prediction = linearModel.predict(testDataFrame)
+
+    #pushing to file
+    outputDataFrame = pd.DataFrame(testInstance)
+    outputDataFrame['Income'] = pd.DataFrame(prediction)
+    print("pusing to a file") 
+    outputDataFrame.to_csv('tcd ml 2019-20 income prediction submission file.csv')
+    print("Mean Square Error is " + str(numpy.sqrt(mean_squared_error(yDataFrameValidate, predictionValidate))))
 
 if __name__ == '__main__':
     run()
