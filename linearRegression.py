@@ -48,7 +48,7 @@ def FormattingColumn(dataFrame):
     dataFrame['Gender'] = dataFrame['Gender'].replace(['0','unknown'],'Unknown Gender')
     dataFrame['Gender'] = dataFrame['Gender'].replace(['other'],'Other Gender')
     
-    #University Degree => ['No','0'] -> No Degree
+    #University Degree => ['No','0'] -> No Degree 
     dataFrame['University Degree'] = dataFrame['University Degree'].replace(['No'],'No Degree')
     dataFrame['University Degree'] = dataFrame['University Degree'].replace(['0'],'0 Degree')
 
@@ -123,6 +123,9 @@ def Preprocessing(dataFrame):
     # #scaling Year of Record
     # dataFrame = ScalingColumns(dataFrame,'Year of Record')
 
+    #scaling Year of Record
+    #dataFrame = ScalingColumns(dataFrame,'Size of City')
+
     #Initial attempt drop -> Instance, Wear Glasses and city size
     dataFrame = dataFrame.drop(['Size of City'], axis = 1)
     dataFrame = dataFrame.drop(['Hair Color'], axis = 1)
@@ -150,10 +153,10 @@ def PreprocessingTrainingDS():
     #Extract Country
     processedTrainingFrame = ExtractingSplFeatures(countryUniques,processedTrainingFrame,'Country')
 
-    #remove the negtive income rows
+    # remove the negtive income rows
     processedTrainingFrame = processedTrainingFrame[processedTrainingFrame['Income in EUR'] > 0]
 
-    #remove outliers
+    # remove outliers
     processedTrainingFrame = processedTrainingFrame[processedTrainingFrame['Income in EUR'] < 2600000]
 
     return processedTrainingFrame.drop(['Income in EUR'],axis = 1), processedTrainingFrame['Income in EUR']
@@ -189,12 +192,15 @@ def run():
     #load and preprocess training data
     (xDataFrame,yDataFrame) = PreprocessingTrainingDS()
 
+    #take log for yDataFrame
+    yDataFrame = numpy.log(yDataFrame)
+
     #split the validation data
     xDataFrame, xDataFrameValidate, yDataFrame, yDataFrameValidate = train_test_split(xDataFrame, yDataFrame, test_size = 0.2, random_state = 0)
    
     print("stated creating linear model")
     #create model and train
-    linearModel = ModelCreation(xDataFrame,yDataFrame)
+    regressionModel = ModelCreation(xDataFrame,yDataFrame)
 
     print("stated testing data preprocessing")
     #load and preprocess test data
@@ -203,8 +209,13 @@ def run():
     print("stated prediction")   
 
     #prediction
-    predictionValidate = linearModel.predict(xDataFrameValidate)
-    prediction = linearModel.predict(testDataFrame)
+    predictionValidate = regressionModel.predict(xDataFrameValidate)
+    prediction = regressionModel.predict(testDataFrame)
+    yDataFrameValidate = numpy.exp(yDataFrameValidate)
+
+    #take exponent to bring values back to normal
+    predictionValidate = numpy.exp(predictionValidate)
+    prediction = numpy.exp(prediction)
 
     #pushing to file
     outputDataFrame = pd.DataFrame(testInstance)

@@ -1,0 +1,54 @@
+#1. There are outliers
+	remove the rows that has 'Income in EUR' more than 2600000
+	remove the rows that has 'Income in EUR' lessthan than 0
+#2. use BayesianRidge rather than linerRegression
+#3. use one heart encoding -> use this function 
+def FeatureExtraction(dataFrame,columnName):
+
+    # OneHeartEncoder
+    encoder = OneHotEncoder(sparse = False, handle_unknown = 'ignore')
+
+    #reshape the column
+    column = dataFrame[columnName]
+    column = numpy.array(column).reshape(-1,1)
+
+    #Extract and join the data frame
+    dataFrame = dataFrame.join(pd.DataFrame(encoder.fit_transform(column),columns=encoder.categories_,index=dataFrame.index))
+
+    #Remove the Column
+    dataFrame = dataFrame.drop([columnName], axis = 1)
+
+    return dataFrame
+
+def ExtractingSplFeatures(uniques,dataFrame,columnName):
+    
+    # OneHeartEncoder
+    encoder = OneHotEncoder(categories = [uniques],sparse = False, handle_unknown = 'ignore')
+
+    #reshape the column
+    column = dataFrame[columnName]
+    column = numpy.array(column).reshape(-1,1)
+
+    #Extract the column and join the data frame
+    dataFrame = dataFrame.join(pd.DataFrame(encoder.fit_transform(column),columns=encoder.categories_,index=dataFrame.index))
+
+    #Remove the profession Column
+    dataFrame = dataFrame.drop([columnName], axis = 1)
+    return dataFrame
+	
+# implementation for the function
+#feature extraction gender
+dataFrame = FeatureExtraction(dataFrame,'Gender')
+
+#store uniques
+professionUniques = processedTrainingFrame['Profession'].unique()
+countryUniques = processedTrainingFrame['Country'].unique()
+
+#Extract profession
+processedTrainingFrame = ExtractingSplFeatures(professionUniques,processedTrainingFrame,'Profession')
+#Extract Country
+processedTrainingFrame = ExtractingSplFeatures(countryUniques,processedTrainingFrame,'Country')
+
+#4. drop -> size of city, hair color and Instance	
+
+#5. dont scale anything
