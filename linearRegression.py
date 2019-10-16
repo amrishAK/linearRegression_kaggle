@@ -3,13 +3,11 @@ import datetime
 import pandas as pd
 import numpy
 from sklearn.linear_model import BayesianRidge
-from sklearn.preprocessing import LabelBinarizer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
-from sklearn import preprocessing
-import seaborn as sns
-import matplotlib.pyplot as plt
+from sklearn import preprocessing 
+
 
 # Dataset Path
 testDS_path = "tcd ml 2019-20 income prediction test (without labels).csv"
@@ -49,8 +47,7 @@ def FormattingColumn(dataFrame):
     dataFrame['Gender'] = dataFrame['Gender'].replace(['other'],'Other Gender')
     
     #University Degree => ['No','0'] -> No Degree 
-    dataFrame['University Degree'] = dataFrame['University Degree'].replace(['No'],'No Degree')
-    dataFrame['University Degree'] = dataFrame['University Degree'].replace(['0'],'0 Degree')
+    dataFrame['University Degree'] = dataFrame['University Degree'].replace(['No,0'],'No Degree')
 
     #Hair Color => ['Unknown','0'] -> Unknown Hair Color
     dataFrame['Hair Color'] = dataFrame['Hair Color'].replace(['Unknown','0'],'Unknown Hair Color')
@@ -109,7 +106,7 @@ def Preprocessing(dataFrame):
     dataFrame = FormattingColumn(dataFrame)
 
     #feature extraction gender
-    dataFrame = FeatureExtraction(dataFrame,'Gender')
+    #dataFrame = FeatureExtraction(dataFrame,'Gender')
 
     #feature extraction uni degree
     dataFrame = FeatureExtraction(dataFrame,'University Degree')
@@ -129,7 +126,8 @@ def Preprocessing(dataFrame):
     #Initial attempt drop -> Instance, Wear Glasses and city size
     dataFrame = dataFrame.drop(['Size of City'], axis = 1)
     dataFrame = dataFrame.drop(['Hair Color'], axis = 1)
-    # dataFrame = dataFrame.drop(['Wears Glasses'], axis = 1)
+    dataFrame = dataFrame.drop(['Wears Glasses'], axis = 1)
+    dataFrame = dataFrame.drop(['Gender'], axis = 1)
     dataFrame = dataFrame.drop(['Instance'], axis = 1)
 
     return dataFrame
@@ -155,6 +153,7 @@ def PreprocessingTrainingDS():
 
     # remove the negtive income rows
     processedTrainingFrame = processedTrainingFrame[processedTrainingFrame['Income in EUR'] > 0]
+
 
     # remove outliers
     processedTrainingFrame = processedTrainingFrame[processedTrainingFrame['Income in EUR'] < 2600000]
@@ -196,9 +195,9 @@ def run():
     yDataFrame = numpy.log(yDataFrame)
 
     #split the validation data
-    xDataFrame, xDataFrameValidate, yDataFrame, yDataFrameValidate = train_test_split(xDataFrame, yDataFrame, test_size = 0.2, random_state = 0)
+    # xDataFrame, xDataFrameValidate, yDataFrame, yDataFrameValidate = train_test_split(xDataFrame, yDataFrame, test_size = 0.2, random_state = 0)
    
-    print("stated creating linear model")
+    print("stated creating model")
     #create model and train
     regressionModel = ModelCreation(xDataFrame,yDataFrame)
 
@@ -209,12 +208,12 @@ def run():
     print("stated prediction")   
 
     #prediction
-    predictionValidate = regressionModel.predict(xDataFrameValidate)
+    # predictionValidate = regressionModel.predict(xDataFrameValidate)
     prediction = regressionModel.predict(testDataFrame)
-    yDataFrameValidate = numpy.exp(yDataFrameValidate)
+    # yDataFrameValidate = numpy.exp(yDataFrameValidate)
 
     #take exponent to bring values back to normal
-    predictionValidate = numpy.exp(predictionValidate)
+    # predictionValidate = numpy.exp(predictionValidate)
     prediction = numpy.exp(prediction)
 
     #pushing to file
@@ -222,7 +221,7 @@ def run():
     outputDataFrame['Income'] = pd.DataFrame(prediction)
     print("pusing to a file") 
     outputDataFrame.to_csv('tcd ml 2019-20 income prediction submission file.csv')
-    print("Mean Square Error is " + str(numpy.sqrt(mean_squared_error(yDataFrameValidate, predictionValidate))))
+    # print("Mean Square Error is " + str(numpy.sqrt(mean_squared_error(yDataFrameValidate, predictionValidate))))
 
 if __name__ == '__main__':
     run()
